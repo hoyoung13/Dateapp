@@ -7,13 +7,15 @@
     const passport = require('./config/passport');  // ✅ passport.js 불러오기
     const userRoutes = require('./routes/userRoutes'); // ✅ 인증 관련 API
     const authRoutes = require('./routes/authRoutes'); // ✅ 이메일/비밀번호 인증 API
-    const boardRoutes = require("./routes/boardRoutes"); // ✅ 추가
-
+    const boardRoutes = require("./routes/boardRoutes");
+    const coupleRoutes = require("./routes/coupleRoutes");
+    const profileRoutes = require("./routes/profileRoutes"); 
     dotenv.config(); // ✅ 환경 변수 로드
 
     const app = express();
     app.use(express.json());
     app.use(cors());
+    app.use(express.urlencoded({ extended: true }));
 
     // ✅ 세션 설정 (필수)
     app.use(
@@ -23,15 +25,12 @@
             saveUninitialized: false,
         })
     );
-
     // ✅ Passport 초기화
     app.use(passport.initialize());
     app.use(passport.session());
-
     db.connect()
         .then(() => console.log("✅ PostgreSQL 연결 성공!"))
         .catch(err => console.error("❌ PostgreSQL 연결 실패:", err));
-
     console.log("🔍 userRoutes:", userRoutes);
     // ✅ API 라우트 등록
     app.use("/auth", authRoutes);
@@ -41,7 +40,11 @@
         app.use('/auth', userRoutes);
     }
     app.use("/boards", boardRoutes);
+    app.use("/couple", coupleRoutes);
+    app.use("/uploads", express.static("uploads"));
 
+    // ✅ 프로필 관련 API 라우트 등록
+    app.use("/profile", profileRoutes); // 🔥 수정됨!
 
 
 

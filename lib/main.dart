@@ -9,6 +9,11 @@ import 'my.dart';
 import 'food.dart';
 import 'board.dart';
 import 'user_provider.dart';
+import 'write_post.dart';
+import 'post.dart';
+import 'place.dart';
+import 'placeadd.dart';
+import 'price.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -48,6 +53,19 @@ class MyApp extends StatelessWidget {
         '/my': (context) => const MyPage(),
         '/food': (context) => const FoodPage(),
         '/board': (context) => const BoardPage(),
+        '/writePost': (context) => const WritePostPage(),
+        '/place': (context) => const PlacePage(),
+        //'/price': (context) => const PriceInfoPage(),
+        '/placeadd': (context) => const PlaceAdditionalInfoPage(),
+      },
+      onGenerateRoute: (RouteSettings settings) {
+        if (settings.name == '/post') {
+          final int postId = settings.arguments as int;
+          return MaterialPageRoute(
+            builder: (context) => PostPage(postId: postId),
+          );
+        }
+        return null;
       },
     );
   }

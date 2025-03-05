@@ -164,29 +164,39 @@ class _HomeContentState extends State<HomeContent> {
       child: Column(
         children: [
           _bannerImage(), // 🔹 배너 이미지 추가
-
-          // 🔹 카테고리 버튼 (1줄에 4개씩, 2줄)
           Padding(
             padding: const EdgeInsets.all(10.0),
             child: Column(
               children: [
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  mainAxisAlignment:
+                      MainAxisAlignment.spaceAround, // ✅ 간격 조정 (공간 활용)
                   children: [
-                    _categoryButton('맛집', () {
+                    _categoryButton('맛집', 'assets/icons/food.png', () {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
                             builder: (context) => const FoodPage()),
                       );
                     }),
-                    _categoryButton('카페', () {}),
-                    _categoryButton('장소', () {}),
-                    _categoryButton('놀거리', () {}),
+                    _categoryButton('카페', 'assets/icons/cafe.png', () {}),
+                    _categoryButton('장소', 'assets/icons/place.png', () {}),
+                    _categoryButton('놀거리', 'assets/icons/play.png', () {}),
                   ],
                 ),
-                const SizedBox(height: 5),
-                _categoryRow(['코스 제작', 'AI 코스', '사용자 코스', '축제 행사']),
+                const SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment:
+                      MainAxisAlignment.spaceAround, // ✅ 간격 조정 (공간 활용)
+                  children: [
+                    _categoryButton('코스 제작', 'assets/icons/course.png', () {}),
+                    _categoryButton('AI 코스', 'assets/icons/ai.png', () {}),
+                    _categoryButton(
+                        '사용자 코스', 'assets/icons/user_course.png', () {}),
+                    _categoryButton(
+                        '축제 행사', 'assets/icons/festival.png', () {}),
+                  ],
+                ),
               ],
             ),
           ),
@@ -235,18 +245,24 @@ class _HomeContentState extends State<HomeContent> {
     );
   }
 
-// ✅ 버튼 스타일을 위한 함수
-  Widget _categoryButton(String text, VoidCallback onTap) {
+// ✅ 새로운 버튼 스타일 (이미지 + 텍스트, 가로 늘림)
+  Widget _categoryButton(String text, String imagePath, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
-        decoration: BoxDecoration(
-          color: Colors.cyan[100],
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Text(text,
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+      child: Column(
+        children: [
+          Image.asset(
+            imagePath,
+            width: 65, // ✅ 기존보다 가로를 넓힘
+            height: 55, // ✅ 기존보다 세로를 살짝 줄임
+            fit: BoxFit.contain,
+          ),
+          const SizedBox(height: 3), // ✅ 텍스트와 이미지 간격 줄이기
+          Text(
+            text,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+          ),
+        ],
       ),
     );
   }

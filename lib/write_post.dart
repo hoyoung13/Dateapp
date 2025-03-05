@@ -1,6 +1,9 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:provider/provider.dart';
+import 'user_provider.dart';
+import 'constants.dart';
 
 class WritePostPage extends StatefulWidget {
   const WritePostPage({super.key});
@@ -12,13 +15,25 @@ class WritePostPage extends StatefulWidget {
 class _WritePostPageState extends State<WritePostPage> {
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _contentController = TextEditingController();
-  String? _selectedBoardType;
-  final List<String> _boardTypes = ["자유 게시판", "질문 게시판", "추천 게시판"];
+
+  int? _selectedBoardId; // ✅ 선택된 게시판 ID
+  final List<Map<String, dynamic>> _boardTypes = [
+    {"name": "자유 게시판", "id": 1},
+    {"name": "질문 게시판", "id": 2},
+    {"name": "추천 게시판", "id": 3},
+  ];
 
   Future<void> _submitPost() async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    int? userId = userProvider.userId;
+
+    print("📌 현재 로그인된 유저 ID: $userId");
+    print("📌 선택된 게시판 ID: $_selectedBoardId");
+
     if (_titleController.text.isEmpty ||
         _contentController.text.isEmpty ||
-        _selectedBoardType == null) {
+        _selectedBoardId == null ||
+        userId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("제목, 내용, 게시판을 선택하세요.")),
       );
@@ -27,22 +42,23 @@ class _WritePostPageState extends State<WritePostPage> {
 
     try {
       final response = await http.post(
-        Uri.parse("http://172.30.1.17:5000/boards"),
+        Uri.parse("$BASE_URL/boards"),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
           "title": _titleController.text,
           "content": _contentController.text,
-          "board_type": _selectedBoardType,
-          "user_id": 1, // 🔹 로그인한 사용자 ID (추후 로그인 연동 필요)
+          "board_id": _selectedBoardId, // ✅ 올바르게 전달되는지 확인
+          "user_id": userId,
         }),
       );
 
+      print("📌 서버 응답 상태 코드: ${response.statusCode}");
+      print("📌 서버 응답 본문: ${response.body}");
+
       if (response.statusCode == 201) {
-        Navigator.pop(context, true); // ✅ 작성 후 이전 페이지로 이동
+        Navigator.pop(context, true);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("❌ 게시글 작성 실패")),
-        );
+        print("❌ 게시글 작성 실패: ${response.body}");
       }
     } catch (e) {
       print("❌ 게시글 작성 오류: $e");
@@ -60,19 +76,24 @@ class _WritePostPageState extends State<WritePostPage> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            // ✅ 게시판 선택 드롭다운
-            DropdownButtonFormField<String>(
+            // ✅ 게시판 선택 드롭다운 (board_id 사용)
+            DropdownButtonFormField<int>(
               decoration: const InputDecoration(labelText: "게시판 선택"),
-              value: _selectedBoardType,
+              value: _selectedBoardId,
               items: _boardTypes.map((board) {
-                return DropdownMenuItem(value: board, child: Text(board));
+                return DropdownMenuItem<int>(
+                  value: board["id"],
+                  child: Text(board["name"]),
+                );
               }).toList(),
               onChanged: (value) {
                 setState(() {
-                  _selectedBoardType = value;
+                  _selectedBoardId = value;
                 });
+                print("📌 선택된 게시판 ID: $_selectedBoardId");
               },
             ),
+
             const SizedBox(height: 10),
 
             // ✅ 제목 입력

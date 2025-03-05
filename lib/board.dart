@@ -1,9 +1,35 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart'; // ✅ 날짜 포맷 라이브러리 추가
 import 'write_post.dart';
 import 'home.dart';
 import 'my.dart';
+import 'constants.dart';
+import 'package:provider/provider.dart';
+import 'user_provider.dart';
+import 'post.dart'; // ✅ 게시글 상세 페이지 import 추가
+
+// ✅ 시간 포맷 함수
+String formatTime(String timestamp) {
+  DateTime postTime = DateTime.parse(timestamp); // ✅ DB에서 받은 시간 파싱
+  DateTime now = DateTime.now();
+  Duration difference = now.difference(postTime); // ✅ 현재 시간과 차이 계산
+
+  if (difference.inDays >= 1) {
+    // 🔹 하루 이상 지난 경우 → YYYY-MM-DD
+    return DateFormat('yyyy-MM-dd').format(postTime);
+  } else if (difference.inHours >= 1) {
+    // 🔹 1시간 이상 지난 경우 → "X시간 전"
+    return '${difference.inHours}시간 전';
+  } else if (difference.inMinutes >= 1) {
+    // 🔹 1분 이상 지난 경우 → "X분 전"
+    return '${difference.inMinutes}분 전';
+  } else {
+    // 🔹 방금 작성된 경우 → "방금 전"
+    return '방금 전';
+  }
+}
 
 class BoardPage extends StatefulWidget {
   const BoardPage({super.key});
@@ -34,21 +60,94 @@ class _BoardPageState extends State<BoardPage> {
   }
 
   // ✅ 게시글 데이터 가져오는 함수
+  // ✅ 게시글 데이터 가져오는 함수
   Future<void> _fetchPosts() async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    int? userId = userProvider.userId;
+
     try {
-      String boardType = _tabTitles[_selectedTabIndex]; // 선택된 게시판
-      final response = await http
-          .get(Uri.parse("http://172.30.1.17:5000/boards?type=$boardType"));
+      String boardType = _tabTitles[_selectedTabIndex];
+      String apiUrl = "$BASE_URL/boards?user_id=$userId"; // ✅ userId 추가
+
+      if (boardType != "모든 게시판") {
+        Map<String, int> boardMap = {
+          "질문 게시판": 1,
+          "추천 게시판": 2,
+          "자유 게시판": 3,
+        };
+
+        int? boardId = boardMap[boardType];
+        if (boardId != null) {
+          apiUrl += "&boardId=$boardId";
+        }
+      }
+
+      print("📌 요청할 API URL: $apiUrl");
+
+      final response = await http.get(Uri.parse(apiUrl));
 
       if (response.statusCode == 200) {
+        List<Map<String, dynamic>> newPosts =
+            List<Map<String, dynamic>>.from(jsonDecode(response.body));
+
         setState(() {
-          _posts = List<Map<String, dynamic>>.from(jsonDecode(response.body));
+          _posts = newPosts;
         });
+
+        print("✅ 서버에서 받은 게시글 개수: ${newPosts.length}");
       } else {
         print("❌ 게시글 불러오기 실패");
       }
     } catch (e) {
       print("❌ 서버 요청 오류: $e");
+    }
+  }
+
+// ✅ 좋아요/싫어요 업데이트 함수
+  Future<void> _updateReaction(int postId, int reactionType) async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    int? userId = userProvider.userId;
+
+    if (userId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("로그인이 필요합니다.")),
+      );
+      return;
+    }
+
+    try {
+      final response = await http.post(
+        Uri.parse("$BASE_URL/boards/$postId/reaction"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "user_id": userId,
+          "reaction": reactionType,
+        }),
+      );
+
+      print("📌 요청한 데이터: { user_id: $userId, reaction: $reactionType }");
+      print("📌 서버 응답 상태 코드: ${response.statusCode}");
+      print("📌 서버 응답 본문: ${response.body}");
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final responseData = jsonDecode(response.body);
+
+        setState(() {
+          for (var post in _posts) {
+            if (post["id"] == postId) {
+              post["likes"] = responseData["likes"]; // ✅ 서버에서 받은 값 적용
+              post["dislikes"] = responseData["dislikes"];
+              post["user_reaction"] = reactionType;
+            }
+          }
+        });
+
+        print("✅ 좋아요 갱신 완료! 현재 좋아요 수: ${responseData["likes"]}");
+      } else {
+        print("❌ 반응 업데이트 실패: ${response.body}");
+      }
+    } catch (e) {
+      print("❌ 반응 요청 오류: $e");
     }
   }
 
@@ -166,11 +265,16 @@ class _BoardPageState extends State<BoardPage> {
   }
 
   // ✅ 게시글 카드 UI (수정 & 삭제 버튼 추가)
+  // ✅ 게시글 카드 UI
   Widget _buildPostCard(Map<String, dynamic> post) {
     return GestureDetector(
       onTap: () {
-        Navigator.pushNamed(context, '/postDetail',
-            arguments: post['id']); // ✅ 게시글 상세페이지로 이동
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PostPage(postId: post["id"]),
+          ),
+        );
       },
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
@@ -182,7 +286,7 @@ class _BoardPageState extends State<BoardPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ✅ 상단 (프로필 이미지, 닉네임, 날짜)
+            // ✅ 상단 (닉네임, 날짜, 삭제 버튼)
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -199,25 +303,61 @@ class _BoardPageState extends State<BoardPage> {
                             fontSize: 14, fontWeight: FontWeight.bold)),
                   ],
                 ),
-                Text(post["created_at"] ?? "날짜",
-                    style: const TextStyle(fontSize: 12, color: Colors.grey)),
+
+                // ✅ 본인이 작성한 게시글이면 삭제 버튼 표시
+                Row(
+                  children: [
+                    Text(
+                      formatTime(post["created_at"] ?? "날짜"),
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                    if (post["is_owner"] ==
+                        true) // ✅ is_owner 값이 true이면 삭제 버튼 표시
+                      IconButton(
+                        icon: const Icon(Icons.delete,
+                            color: Colors.red, size: 18),
+                        onPressed: () => _confirmDelete(post["id"]),
+                      ),
+                  ],
+                ),
               ],
             ),
 
             const SizedBox(height: 8),
 
-            // ✅ 게시글 내용
+            // ✅ 게시판 이름 + 제목
             Row(
               children: [
-                Text(post["board_name"] ?? "게시판",
-                    style: const TextStyle(fontSize: 12, color: Colors.red)),
-                const SizedBox(width: 8),
-                Text(post["title"] ?? "게시글 제목",
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 4, horizontal: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.cyan[200],
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                  child: Text(
+                    post["board_name"] ?? "게시판",
                     style: const TextStyle(
-                        fontSize: 14, fontWeight: FontWeight.bold)),
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    post["title"] ?? "게시글 제목",
+                    style: const TextStyle(
+                        fontSize: 14, fontWeight: FontWeight.bold),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
               ],
             ),
+
             const SizedBox(height: 5),
+
+            // ✅ 게시글 내용 (최대 2줄)
             Text(
               post["content"] ?? "게시글 내용",
               style: const TextStyle(fontSize: 13, color: Colors.black),
@@ -227,7 +367,7 @@ class _BoardPageState extends State<BoardPage> {
 
             const SizedBox(height: 8),
 
-            // ✅ 하단 (조회수, 좋아요, 싫어요, 댓글, 수정, 삭제)
+            // ✅ 하단 (조회수, 좋아요, 싫어요)
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -237,38 +377,24 @@ class _BoardPageState extends State<BoardPage> {
                         style:
                             const TextStyle(fontSize: 12, color: Colors.grey)),
                     const SizedBox(width: 15),
-                    Icon(Icons.thumb_up, size: 14, color: Colors.grey),
-                    const SizedBox(width: 3),
-                    Text("좋아요: ${post["likes"] ?? 0}",
-                        style:
-                            const TextStyle(fontSize: 12, color: Colors.grey)),
-                    const SizedBox(width: 15),
-                    Icon(Icons.thumb_down, size: 14, color: Colors.grey),
-                    const SizedBox(width: 3),
-                    Text("싫어요: ${post["dislikes"] ?? 0}",
-                        style:
-                            const TextStyle(fontSize: 12, color: Colors.grey)),
-                  ],
-                ),
-
-                // ✅ 수정 & 삭제 버튼
-                Row(
-                  children: [
                     IconButton(
-                      icon:
-                          const Icon(Icons.edit, size: 16, color: Colors.blue),
-                      onPressed: () {
-                        Navigator.pushNamed(context, '/editPost',
-                            arguments: post);
-                      },
+                      icon: Icon(Icons.thumb_up,
+                          size: 20,
+                          color: post["user_reaction"] == 1
+                              ? Colors.blue
+                              : Colors.grey),
+                      onPressed: () => _updateReaction(post["id"], 1),
                     ),
+                    Text("${post["likes"] ?? 0}"),
                     IconButton(
-                      icon:
-                          const Icon(Icons.delete, size: 16, color: Colors.red),
-                      onPressed: () {
-                        _deletePost(post["id"]);
-                      },
+                      icon: Icon(Icons.thumb_down,
+                          size: 20,
+                          color: post["user_reaction"] == -1
+                              ? Colors.red
+                              : Colors.grey),
+                      onPressed: () => _updateReaction(post["id"], -1),
                     ),
+                    Text("${post["dislikes"] ?? 0}"),
                   ],
                 ),
               ],
@@ -279,21 +405,59 @@ class _BoardPageState extends State<BoardPage> {
     );
   }
 
+  void _confirmDelete(int postId) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text("게시글 삭제"),
+          content: const Text("정말로 삭제하시겠습니까?"),
+          actions: [
+            TextButton(
+              child: const Text("취소"),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            TextButton(
+              child: const Text("삭제", style: TextStyle(color: Colors.red)),
+              onPressed: () {
+                Navigator.of(context).pop();
+                _deletePost(postId);
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // ✅ 게시글 삭제 함수
   // ✅ 게시글 삭제 함수
   Future<void> _deletePost(int postId) async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    int? userId = userProvider.userId; // ✅ 현재 로그인한 사용자 ID
+
     try {
-      final response = await http
-          .delete(Uri.parse("http://172.30.1.17:5000/boards/$postId"));
+      final response = await http.delete(
+        Uri.parse("$BASE_URL/boards/$postId"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"user_id": userId}), // ✅ user_id 전달
+      );
 
       if (response.statusCode == 200) {
         setState(() {
           _posts.removeWhere((post) => post["id"] == postId);
         });
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text("게시글이 삭제되었습니다.")));
       } else {
-        print("❌ 삭제 실패");
+        print("❌ 삭제 실패: ${response.body}");
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text("삭제에 실패했습니다.")));
       }
     } catch (e) {
       print("❌ 삭제 요청 오류: $e");
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text("서버 오류가 발생했습니다.")));
     }
   }
 }

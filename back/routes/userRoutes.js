@@ -1,6 +1,8 @@
 const express = require("express");
 const passport = require('passport');
 const router = express.Router();
+const { getCoupleInfo } = require("../controllers/coupleController");
+
 
 // ✅ 구글 로그인 요청
 router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
@@ -32,5 +34,7 @@ router.get('/logout', (req, res) => {
         res.send('로그아웃 되었습니다.');
     });
 });
+
+
 
 module.exports = router;

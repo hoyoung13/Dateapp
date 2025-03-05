@@ -3,7 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 import 'user_provider.dart';
+import 'constants.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -16,10 +19,12 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
+  // ✅ 일반 로그인 (이메일 & 비밀번호)
+
   Future<void> _login() async {
     try {
       final response = await http.post(
-        Uri.parse("http://172.30.1.17:5000/auth/login"), // 🔹 서버 주소 확인
+        Uri.parse("$BASE_URL/auth/login"),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
           "email": _emailController.text,
@@ -30,17 +35,23 @@ class _LoginPageState extends State<LoginPage> {
       print("📥 서버 응답 상태 코드: ${response.statusCode}");
       print("📥 서버 응답 본문: ${response.body}");
 
-      // ✅ 응답이 JSON 형식인지 확인
-      final responseData = jsonDecode(response.body);
       if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+
         print("✅ 로그인 성공: ${responseData["user"]}");
-        // ✅ UserProvider에 로그인된 유저 정보 저장
-        Provider.of<UserProvider>(context, listen: false)
-            .setUserData(responseData["user"]);
+        final userProvider = Provider.of<UserProvider>(context, listen: false);
+        await userProvider.setUserData(
+            responseData["user"]); // ✅ 여기에서 name, birth_date, gender 저장됨
+
+        // ✅ SharedPreferences에 로그인 정보 저장 (자동 로그인)
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool("isLoggedIn", true);
+        await prefs.setInt("user_id", responseData["user"]["id"]);
 
         // 홈 화면으로 이동
         Navigator.pushReplacementNamed(context, '/home');
       } else {
+        final responseData = jsonDecode(response.body);
         print("❌ 로그인 실패: ${responseData["error"]}");
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("로그인 실패: ${responseData["error"]}")),
@@ -48,6 +59,125 @@ class _LoginPageState extends State<LoginPage> {
       }
     } catch (e) {
       print("❌ 로그인 요청 중 오류 발생: $e");
+    }
+  }
+
+  /*Future<void> _login() async {
+    try {
+      final response = await http.post(
+        Uri.parse("$BASE_URL/auth/login"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "email": _emailController.text,
+          "password": _passwordController.text,
+        }),
+      );
+
+      print("📥 서버 응답 상태 코드: ${response.statusCode}");
+      print("📥 서버 응답 본문: ${response.body}");
+
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+        final userProvider = Provider.of<UserProvider>(context, listen: false);
+        Map<String, dynamic> userData = responseData["user"];
+        userData["profile_image"] = userData["profile_image"] ?? "";
+
+        print("✅ 로그인 성공: ${responseData["user"]}");
+        await userProvider.setUserData(userData);
+        if (userData["id"] != null) {
+          await userProvider.fetchUserProfile(userData["id"]);
+        } else {
+          print("❌ userId가 null이므로 fetchUserProfile 호출을 건너뜁니다.");
+        }
+        // ✅ SharedPreferences에 로그인 정보 저장 (자동 로그인)
+        final prefs = await SharedPreferences.getInstance();
+
+        await prefs.setBool("isLoggedIn", true);
+        await prefs.setInt("user_id", userData["id"]);
+        await prefs.setString("nickname", userData["nickname"] ?? "");
+        await prefs.setString("email", userData["email"] ?? "");
+        await prefs.setString("profile_image", userData["profile_image"]);
+        await prefs.setString(
+            "birth_date", responseData["user"]["birth_date"] ?? "");
+
+        // 홈 화면으로 이동
+        Navigator.pushReplacementNamed(context, '/home');
+      } else {
+        final responseData = jsonDecode(response.body);
+        print("❌ 로그인 실패: ${responseData["error"]}");
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("로그인 실패: ${responseData["error"]}")),
+        );
+      }
+    } catch (e) {
+      print("❌ 로그인 요청 중 오류 발생: $e");
+    }
+  }
+*/
+  //카카오 로그인 및 users테이블에 집어넣기
+  Future<void> _kakaoLogin() async {
+    try {
+      bool isInstalled = await isKakaoTalkInstalled();
+      OAuthToken token;
+
+      if (isInstalled) {
+        token = await UserApi.instance.loginWithKakaoTalk();
+      } else {
+        token = await UserApi.instance.loginWithKakaoAccount();
+      }
+
+      print('✅ 카카오 로그인 성공: ${token.accessToken}');
+
+      // 🔹 카카오 유저 정보 가져오기
+      User user = await UserApi.instance.me();
+      String userName = user.kakaoAccount?.profile?.nickname ?? "사용자";
+      String userEmail = user.kakaoAccount?.email ?? "";
+      int kakaoId = user.id; // ✅ 카카오에서 제공하는 고유 ID 가져오기
+
+      print("✅ 카카오 사용자 이름: $userName");
+      print("✅ 카카오 사용자 이메일: $userEmail");
+      print("✅ 카카오 사용자 ID: $kakaoId");
+
+      // ✅ 🔥 서버에 사용자 정보 저장 요청 (여기가 중요함!)
+      final response = await http.post(
+        Uri.parse("$BASE_URL/auth/kakao-login"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "email": userEmail,
+          "nickname": userName,
+          "kakao_id": kakaoId, // ✅ 변경됨!
+        }),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        print("✅ 서버에 카카오 사용자 저장 성공!");
+        final responseData = jsonDecode(response.body);
+
+        // ✅ UserProvider에 저장
+        Provider.of<UserProvider>(context, listen: false)
+            .setUserData(responseData["user"]);
+
+        // ✅ SharedPreferences에 저장 (자동 로그인)
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool("isLoggedIn", true);
+        await prefs.setInt("user_id", responseData["user"]["id"]);
+        await prefs.setString(
+            "nickname", responseData["user"]["nickname"] ?? "");
+        await prefs.setString("email", responseData["user"]["email"] ?? "");
+        await prefs.setString("name", responseData["user"]["name"] ?? "");
+        await prefs.setString(
+            "birth_date", responseData["user"]["birth_date"] ?? "");
+
+        // 홈 화면으로 이동
+        Navigator.pushReplacementNamed(context, '/home');
+      } else {
+        print("❌ 서버에 사용자 저장 실패: ${response.body}");
+      }
+    } catch (e) {
+      print('❌ 카카오 로그인 실패: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("카카오 로그인 실패: $e")),
+      );
     }
   }
 
@@ -181,40 +311,7 @@ class _LoginPageState extends State<LoginPage> {
                   height: 54,
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: () async {
-                      try {
-                        bool isInstalled = await isKakaoTalkInstalled();
-
-                        OAuthToken token;
-                        if (isInstalled) {
-                          token = await UserApi.instance.loginWithKakaoTalk();
-                        } else {
-                          token =
-                              await UserApi.instance.loginWithKakaoAccount();
-                        }
-
-                        print('카카오 로그인 성공: ${token.accessToken}');
-                        // 🔹 유저 정보 가져오기
-                        User user = await UserApi.instance.me();
-                        String userName =
-                            user.kakaoAccount?.profile?.nickname ?? "사용자";
-
-                        print("✅ 카카오 사용자 이름: $userName");
-
-                        // ✅ UserProvider에 저장 (만약 Provider를 사용하고 있다면)
-                        Provider.of<UserProvider>(context, listen: false)
-                            .setUserData({
-                          "nickname": userName,
-                          "email": user.kakaoAccount?.email ?? "",
-                        });
-                        Navigator.pushReplacementNamed(context, '/home');
-                      } catch (e) {
-                        print('카카오 로그인 실패: $e');
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text("카카오 로그인 실패: $e")),
-                        );
-                      }
-                    },
+                    onPressed: _kakaoLogin,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.yellow,
                       shape: RoundedRectangleBorder(

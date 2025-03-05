@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'user_provider.dart';
+import 'profile.dart';
+import 'couple.dart';
+import 'place.dart';
+import 'dart:io';
 
 class MyPage extends StatefulWidget {
   const MyPage({super.key});
@@ -34,6 +38,8 @@ class _MyPageState extends State<MyPage> {
   Widget build(BuildContext context) {
     final userProvider = Provider.of<UserProvider>(context);
     final String nickname = userProvider.nickname ?? "사용자 닉네임";
+    final String? profileImagePath = userProvider.profileImagePath;
+
     return Scaffold(
       body: Column(
         children: [
@@ -68,7 +74,11 @@ class _MyPageState extends State<MyPage> {
                 // 원형 프로필 이미지
                 CircleAvatar(
                   radius: 40,
-                  backgroundImage: AssetImage('assets/profile.png'),
+                  backgroundImage: userProvider.profileImagePath != null &&
+                          userProvider.profileImagePath!.isNotEmpty
+                      ? NetworkImage(userProvider.profileImagePath!)
+                          as ImageProvider
+                      : AssetImage('assets/profile.png'), // 기본 이미지
                 ),
                 const SizedBox(width: 15),
                 // 이름 + 내 정보 수정, 로그아웃
@@ -84,7 +94,16 @@ class _MyPageState extends State<MyPage> {
                     Row(
                       children: [
                         TextButton(
-                          onPressed: () {},
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (context) =>
+                                      const EditProfilePage()),
+                            ).then((_) {
+                              setState(() {}); // ✅ 프로필 수정 후 UI 업데이트
+                            });
+                          },
                           child: const Text("내 정보 수정",
                               style: TextStyle(color: Colors.pink)),
                         ),
@@ -130,8 +149,19 @@ class _MyPageState extends State<MyPage> {
           Expanded(
             child: ListView(
               children: [
-                _buildListTile("커플 관리", Icons.coffee, isNew: true),
-                _buildListTile("장소 제안", Icons.shopping_bag),
+                _buildListTile("커플 관리", Icons.coffee, isNew: true, onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const CouplePage()),
+                  );
+                }),
+                _buildListTile("장소 제안", Icons.shopping_bag, onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) => const PlacePage()), // ✅ 이동
+                  );
+                }),
                 _buildListTile("취향 설정", Icons.favorite),
                 _buildListTile("친구 관리", Icons.history),
                 _buildListTile("문의 하기", Icons.history),
@@ -160,7 +190,8 @@ class _MyPageState extends State<MyPage> {
   }
 
   // ✅ 리스트 아이템 생성 함수
-  Widget _buildListTile(String title, IconData icon, {bool isNew = false}) {
+  Widget _buildListTile(String title, IconData icon,
+      {bool isNew = false, VoidCallback? onTap}) {
     return ListTile(
       leading: Icon(icon, color: Colors.black54),
       title: Text(title, style: const TextStyle(fontSize: 16)),
@@ -175,7 +206,7 @@ class _MyPageState extends State<MyPage> {
               ],
             )
           : const Icon(Icons.chevron_right),
-      onTap: () {},
+      onTap: onTap ?? () {},
     );
   }
 }
