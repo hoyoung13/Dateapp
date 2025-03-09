@@ -17,7 +17,15 @@ import 'price.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await dotenv.load(fileName: "assets/.env"); // ✅ 정확한 경로로 설정
+  try {
+    await dotenv.load(fileName: "assets/.env"); // ✅ .env 파일 로드
+    print("✅ .env 파일 로드 완료");
+
+    String? naverClientId = dotenv.env['NAVER_CLIENT_ID'];
+    String? naverClientSecret = dotenv.env['NAVER_CLIENT_SECRET'];
+  } catch (e) {
+    print("❌ .env 파일을 로드하는 중 오류 발생: $e");
+  }
   KakaoSdk.init(nativeAppKey: "2335e028a51784148baef28bac903d8c");
   runApp(
     MultiProvider(
@@ -55,14 +63,23 @@ class MyApp extends StatelessWidget {
         '/board': (context) => const BoardPage(),
         '/writePost': (context) => const WritePostPage(),
         '/place': (context) => const PlacePage(),
-        //'/price': (context) => const PriceInfoPage(),
-        '/placeadd': (context) => const PlaceAdditionalInfoPage(),
       },
       onGenerateRoute: (RouteSettings settings) {
         if (settings.name == '/post') {
           final int postId = settings.arguments as int;
           return MaterialPageRoute(
             builder: (context) => PostPage(postId: postId),
+          );
+        } else if (settings.name == '/price') {
+          final String placeName = settings.arguments as String;
+          return MaterialPageRoute(
+            builder: (context) => PriceInfoPage(placeName: placeName),
+          );
+        } else if (settings.name == '/placeadd') {
+          final String placeName = settings.arguments as String;
+          return MaterialPageRoute(
+            builder: (context) =>
+                PlaceAdditionalInfoPage(placeName: placeName), // ✅ 장소 이름 전달
           );
         }
         return null;

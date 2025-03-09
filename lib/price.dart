@@ -1,4 +1,7 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'placeadd.dart';
 
 class PriceInfoPage extends StatefulWidget {
@@ -63,12 +66,15 @@ class _PriceInfoPageState extends State<PriceInfoPage> {
       ),
       body: Padding(
         padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: ListView(
+          //crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              "선택한 장소의 가격정보가 있나요?",
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            Text(
+              "'${widget.placeName.replaceAll(RegExp(r'<[^>]*>'), '')}'의 가격정보가 있나요?",
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: 20),
 
@@ -79,7 +85,7 @@ class _PriceInfoPageState extends State<PriceInfoPage> {
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(vertical: 15),
                 decoration: BoxDecoration(
-                  color: _showPriceInputs ? Colors.pink[100] : Colors.grey[300],
+                  color: _showPriceInputs ? Colors.cyan[100] : Colors.grey[300],
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Center(
@@ -99,7 +105,7 @@ class _PriceInfoPageState extends State<PriceInfoPage> {
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(vertical: 15),
                 decoration: BoxDecoration(
-                  color: !_showPriceInputs ? Colors.pink[50] : Colors.grey[300],
+                  color: !_showPriceInputs ? Colors.cyan[50] : Colors.grey[300],
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Center(
@@ -119,6 +125,7 @@ class _PriceInfoPageState extends State<PriceInfoPage> {
                 style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 10),
+
               GestureDetector(
                 onTap: () {
                   // ✅ 이미지 업로드 기능 추가 가능
@@ -212,6 +219,7 @@ class _PriceInfoPageState extends State<PriceInfoPage> {
                     ),
                   ),
                 ),
+
               const SizedBox(height: 20),
             ],
 
@@ -224,7 +232,8 @@ class _PriceInfoPageState extends State<PriceInfoPage> {
               onPressed: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (context) => const PlaceAdditionalInfoPage(),
+                    builder: (context) => PlaceAdditionalInfoPage(
+                        placeName: widget.placeName), // ✅ 장소 이름 전달
                   ),
                 );
               },

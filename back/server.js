@@ -10,6 +10,8 @@
     const boardRoutes = require("./routes/boardRoutes");
     const coupleRoutes = require("./routes/coupleRoutes");
     const profileRoutes = require("./routes/profileRoutes"); 
+    const placeRoutes = require('./routes/placeRoutes');
+
     dotenv.config(); // ✅ 환경 변수 로드
 
     const app = express();
@@ -46,7 +48,7 @@
     // ✅ 프로필 관련 API 라우트 등록
     app.use("/profile", profileRoutes); // 🔥 수정됨!
 
-
+    app.use('/places', placeRoutes);
 
 
     // ✅ 서버 실행
