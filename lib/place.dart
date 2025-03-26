@@ -12,7 +12,7 @@ class PlacePage extends StatefulWidget {
 
 class _PlacePageState extends State<PlacePage> {
   TextEditingController searchController = TextEditingController();
-  List places = []; // 장소 검색 결과 저장
+  List places = [];
 
   Future<void> fetchPlaces(String query) async {
     final String? clientId = dotenv.env['NAVER_CLIENT_ID'];
@@ -29,15 +29,15 @@ class _PlacePageState extends State<PlacePage> {
     final response = await http.get(
       Uri.parse(url),
       headers: {
-        "X-Naver-Client-Id": clientId, // ✅ 네이버 Developers Client ID
-        "X-Naver-Client-Secret": clientSecret, // ✅ 네이버 Developers Client Secret
+        "X-Naver-Client-Id": clientId,
+        "X-Naver-Client-Secret": clientSecret,
       },
     );
 
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
       setState(() {
-        places = data['items']; // ✅ 'places' 대신 'items' 사용
+        places = data['items'];
       });
       print("✅ 네이버 장소 검색 결과: ${data['items']}");
     } else {
@@ -57,9 +57,7 @@ class _PlacePageState extends State<PlacePage> {
         centerTitle: true,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () {
-            Navigator.pop(context);
-          },
+          onPressed: () => Navigator.pop(context),
         ),
         elevation: 0,
       ),
@@ -98,20 +96,25 @@ class _PlacePageState extends State<PlacePage> {
               ),
             ),
             const SizedBox(height: 20),
-
-            // 검색 결과 리스트
             Expanded(
               child: ListView.builder(
                 itemCount: places.length,
                 itemBuilder: (context, index) {
                   final place = places[index];
                   return ListTile(
-                    title: Text(place['title']
-                        .replaceAll(RegExp(r'<[^>]*>'), '')), // ✅ HTML 태그 제거
+                    title:
+                        Text(place['title'].replaceAll(RegExp(r'<[^>]*>'), '')),
                     subtitle: Text(place['address']),
                     onTap: () {
-                      Navigator.pushNamed(context, '/price',
-                          arguments: place['title']);
+                      Navigator.pushNamed(
+                        context,
+                        '/CategorySelectionPage',
+                        arguments: {
+                          'place_name':
+                              place['title'].replaceAll(RegExp(r'<[^>]*>'), ''),
+                          'address': place['address']
+                        },
+                      );
                     },
                   );
                 },

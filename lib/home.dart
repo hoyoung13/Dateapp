@@ -3,27 +3,18 @@ import 'dart:convert';
 import 'package:flutter/services.dart' show rootBundle;
 import 'my.dart';
 import 'food.dart';
+import 'cafe.dart';
+import 'play.dart';
+import 'see.dart';
+import 'walk.dart';
 import 'board.dart';
+import 'navermap.dart';
+import 'zzim.dart';
+import 'course.dart';
 
 void main() {
   runApp(const HomePage());
 }
-
-/*class HomePageQ extends StatelessWidget {
-  const HomePageQ({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Date App',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        scaffoldBackgroundColor: Colors.grey.shade100, // 🔹 배경색 연한 회색으로 변경
-      ),
-      home: const HomePage(),
-    );
-  }
-}*/
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -39,7 +30,7 @@ class _HomePageState extends State<HomePage> {
   final List<Widget> _pages = [
     const HomeContent(),
     const Center(child: Text('💬 커뮤니티 화면')),
-    const Center(child: Text('❤️ 찜 목록 화면')),
+    const ZzimPage(),
     const Center(child: Text('🎉 EVENT 화면')),
     const MyPage(),
   ];
@@ -90,6 +81,9 @@ class _HomePageState extends State<HomePage> {
           } else if (index == 1) {
             Navigator.of(context)
                 .pushReplacement(_noAnimationRoute(const BoardPage()));
+          } else if (index == 2) {
+            Navigator.of(context)
+                .pushReplacement(_noAnimationRoute(const ZzimPage()));
           } else {
             setState(() {
               _selectedIndex = index;
@@ -179,9 +173,27 @@ class _HomeContentState extends State<HomeContent> {
                             builder: (context) => const FoodPage()),
                       );
                     }),
-                    _categoryButton('카페', 'assets/icons/cafe.png', () {}),
-                    _categoryButton('장소', 'assets/icons/place.png', () {}),
-                    _categoryButton('놀거리', 'assets/icons/play.png', () {}),
+                    _categoryButton('카페', 'assets/icons/cafe.png', () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const CafePage()),
+                      );
+                    }),
+                    _categoryButton('장소', 'assets/icons/place.png', () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const WalkPage()),
+                      );
+                    }),
+                    _categoryButton('놀거리', 'assets/icons/play.png', () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const PlayPage()),
+                      );
+                    }),
                   ],
                 ),
                 const SizedBox(height: 10),
@@ -189,7 +201,13 @@ class _HomeContentState extends State<HomeContent> {
                   mainAxisAlignment:
                       MainAxisAlignment.spaceAround, // ✅ 간격 조정 (공간 활용)
                   children: [
-                    _categoryButton('코스 제작', 'assets/icons/course.png', () {}),
+                    _categoryButton('코스 제작', 'assets/icons/course.png', () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const CourseCreationPage()),
+                      );
+                    }),
                     _categoryButton('AI 코스', 'assets/icons/ai.png', () {}),
                     _categoryButton(
                         '사용자 코스', 'assets/icons/user_course.png', () {}),

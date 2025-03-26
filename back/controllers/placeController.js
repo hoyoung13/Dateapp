@@ -47,5 +47,28 @@ const createPlace = async (req, res) => {
     res.status(500).json({ error: "Server error" });
   }
 };
+const getPlaces = async (req, res) => {
+  try {
+    const result = await pool.query("SELECT * FROM place_info"); // 모든 장소 정보 조회
+    res.status(200).json(result.rows);
+  } catch (error) {
+    console.error("Error fetching places:", error);
+    res.status(500).json({ error: "Server error" });
+  }
+};
 
-module.exports = { createPlace };
+const getPlaceById = async (req, res) => {
+  try {
+    const { id } = req.params; // URL 파라미터로 장소의 id 받기
+    const result = await pool.query("SELECT * FROM place_info WHERE id = $1", [id]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Place not found" });
+    }
+    res.status(200).json(result.rows[0]);
+  } catch (error) {
+    console.error("Error fetching place:", error);
+    res.status(500).json({ error: "Server error" });
+  }
+};
+
+module.exports = { createPlace, getPlaces,getPlaceById };

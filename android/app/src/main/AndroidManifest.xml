@@ -10,7 +10,9 @@
         android:label="date"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
-        
+        <meta-data
+            android:name="com.naver.maps.map.CLIENT_ID"
+            android:value="9xo605i981" />
         <!-- ✅ FileProvider 추가 -->
         <provider
             android:name="androidx.core.content.FileProvider"

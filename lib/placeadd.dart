@@ -1,12 +1,20 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:time_picker_spinner/time_picker_spinner.dart';
+import 'package:http/http.dart' as http;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class PlaceAdditionalInfoPage extends StatefulWidget {
-  final String placeName;
+  final Map<String, dynamic> placeData; // 장소 검색 시 전달받은 데이터 (장소명, 주소)
+  final List<Map<String, String>> priceList; // 가격 정보
 
-  const PlaceAdditionalInfoPage({super.key, required this.placeName});
+  const PlaceAdditionalInfoPage({
+    super.key,
+    required this.placeData,
+    required this.priceList,
+  });
 
   @override
   _PlaceAdditionalInfoPageState createState() =>
@@ -14,18 +22,13 @@ class PlaceAdditionalInfoPage extends StatefulWidget {
 }
 
 class _PlaceAdditionalInfoPageState extends State<PlaceAdditionalInfoPage> {
-  // 장소 소개, 해시태그, 전화번호 입력 컨트롤러
   final TextEditingController descriptionController = TextEditingController();
   final TextEditingController hashtagController = TextEditingController();
   final TextEditingController phoneController = TextEditingController();
 
-  // 추가된 해시태그 리스트
   List<String> hashtags = [];
-
-  // 이미지 리스트 (파일 경로 또는 URL)
   List<String> imageList = [];
 
-  // 요일별 영업 여부 (true → 영업, false → 휴무)
   Map<String, bool> selectedDays = {
     "월": false,
     "화": false,
@@ -36,7 +39,6 @@ class _PlaceAdditionalInfoPageState extends State<PlaceAdditionalInfoPage> {
     "일": false,
   };
 
-  // 요일별 시작/종료 시간 (시, 분)
   Map<String, int> startHour = {
     "월": 9,
     "화": 9,
@@ -74,14 +76,12 @@ class _PlaceAdditionalInfoPageState extends State<PlaceAdditionalInfoPage> {
     "일": 0,
   };
 
-  /// 요일 선택/해제 (휴무 ↔ 영업)
   void _toggleDaySelection(String day) {
     setState(() {
       selectedDays[day] = !selectedDays[day]!;
     });
   }
 
-  /// Spinner TimePicker 열기 (시간 선택)
   void _showSpinnerTimePicker(BuildContext context, String day, bool isStart) {
     DateTime tempDateTime = DateTime(
       2023,
@@ -99,7 +99,7 @@ class _PlaceAdditionalInfoPageState extends State<PlaceAdditionalInfoPage> {
           content: SizedBox(
             height: 200,
             child: TimePickerSpinner(
-              is24HourMode: true, // 24시간제
+              is24HourMode: true,
               normalTextStyle:
                   const TextStyle(fontSize: 18, color: Colors.grey),
               highlightedTextStyle:
@@ -139,7 +139,6 @@ class _PlaceAdditionalInfoPageState extends State<PlaceAdditionalInfoPage> {
     );
   }
 
-  /// 해시태그 추가 버튼 동작
   void _addHashtag() {
     String text = hashtagController.text.trim();
     if (text.isNotEmpty) {
@@ -153,7 +152,6 @@ class _PlaceAdditionalInfoPageState extends State<PlaceAdditionalInfoPage> {
     }
   }
 
-  /// 이미지 선택 (image_picker 사용)
   Future<void> _pickImage() async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
@@ -164,7 +162,6 @@ class _PlaceAdditionalInfoPageState extends State<PlaceAdditionalInfoPage> {
     }
   }
 
-  /// 이미지 위젯 (파일 경로이면 FileImage, 아니면 NetworkImage)
   Widget _buildImageWidget(String imagePath) {
     ImageProvider imageProvider;
     if (imagePath.startsWith('http')) {
@@ -177,12 +174,43 @@ class _PlaceAdditionalInfoPageState extends State<PlaceAdditionalInfoPage> {
       height: 70,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(8),
-        image: DecorationImage(
-          image: imageProvider,
-          fit: BoxFit.cover,
-        ),
+        image: DecorationImage(image: imageProvider, fit: BoxFit.cover),
       ),
     );
+  }
+
+  // payload 생성 후 PlaceInPage로 이동 (DB 저장은 PlaceInPage에서 "등록" 버튼으로 수행)
+  void _goToPlaceInPage() {
+    Map<String, dynamic> operatingHours = {};
+    selectedDays.forEach((day, isOpen) {
+      if (isOpen) {
+        String start =
+            "${startHour[day]!.toString().padLeft(2, '0')}:${startMinute[day]!.toString().padLeft(2, '0')}";
+        String end =
+            "${endHour[day]!.toString().padLeft(2, '0')}:${endMinute[day]!.toString().padLeft(2, '0')}";
+        operatingHours[day] = {"start": start, "end": end};
+      } else {
+        operatingHours[day] = "휴무";
+      }
+    });
+
+    dynamic priceInfo = widget.priceList.isEmpty ? null : widget.priceList;
+
+    Map<String, dynamic> payload = {
+      "user_id": 1, // 실제 사용자 id로 대체
+      "place_name": widget.placeData['place_name'],
+      "description": descriptionController.text,
+      "address": widget.placeData['address'],
+      "phone": phoneController.text,
+      "main_category": widget.placeData['main_category'] ?? "메인카테고리",
+      "sub_category": widget.placeData['sub_category'] ?? "세부카테고리",
+      "hashtags": hashtags,
+      "images": imageList,
+      "operating_hours": operatingHours,
+      "price_info": priceInfo,
+    };
+
+    Navigator.pushReplacementNamed(context, '/placeinpage', arguments: payload);
   }
 
   @override
@@ -202,14 +230,12 @@ class _PlaceAdditionalInfoPageState extends State<PlaceAdditionalInfoPage> {
         padding: const EdgeInsets.all(20),
         child: ListView(
           children: [
-            // 안내 문구
             Text(
-              "'${widget.placeName.replaceAll(RegExp(r'<[^>]*>'), '')}'의 추가 정보를 입력해주세요",
+              "'${widget.placeData['place_name']}'의 추가 정보를 입력해주세요",
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 20),
-
-            // 이미지 섹션: 등록된 이미지들 + 오른쪽에 추가 placeholder
+            // 이미지 섹션
             Wrap(
               spacing: 10,
               children: [
@@ -229,7 +255,6 @@ class _PlaceAdditionalInfoPageState extends State<PlaceAdditionalInfoPage> {
               ],
             ),
             const SizedBox(height: 20),
-
             // 장소 소개글 입력
             const Text("장소 소개글", style: TextStyle(fontSize: 14)),
             const SizedBox(height: 10),
@@ -247,7 +272,6 @@ class _PlaceAdditionalInfoPageState extends State<PlaceAdditionalInfoPage> {
               ),
             ),
             const SizedBox(height: 20),
-
             // 장소 전화번호 입력
             const Text("장소 전화번호", style: TextStyle(fontSize: 14)),
             const SizedBox(height: 10),
@@ -265,8 +289,7 @@ class _PlaceAdditionalInfoPageState extends State<PlaceAdditionalInfoPage> {
               ),
             ),
             const SizedBox(height: 20),
-
-            // 해시태그 입력 + 추가 버튼
+            // 해시태그 입력 및 추가
             const Text("해시태그", style: TextStyle(fontSize: 14)),
             const SizedBox(height: 10),
             Row(
@@ -294,14 +317,9 @@ class _PlaceAdditionalInfoPageState extends State<PlaceAdditionalInfoPage> {
             const SizedBox(height: 10),
             Wrap(
               spacing: 8,
-              children: hashtags
-                  .map((tag) => Chip(
-                        label: Text(tag),
-                      ))
-                  .toList(),
+              children: hashtags.map((tag) => Chip(label: Text(tag))).toList(),
             ),
             const SizedBox(height: 20),
-
             // 영업시간 설정 (요일별)
             const Text("영업시간", style: TextStyle(fontSize: 14)),
             const SizedBox(height: 10),
@@ -311,10 +329,8 @@ class _PlaceAdditionalInfoPageState extends State<PlaceAdditionalInfoPage> {
                 final isSelected = entry.value;
                 return Column(
                   children: [
-                    // Row: 요일은 왼쪽 정렬, 시간 정보는 Expanded로 가운데 정렬
                     Row(
                       children: [
-                        // 요일 버튼 (왼쪽 정렬)
                         GestureDetector(
                           onTap: () => _toggleDaySelection(day),
                           child: Container(
@@ -334,7 +350,6 @@ class _PlaceAdditionalInfoPageState extends State<PlaceAdditionalInfoPage> {
                             ),
                           ),
                         ),
-                        // Expanded 영역에 시간 정보 중앙 정렬
                         Expanded(
                           child: Center(
                             child: isSelected
@@ -394,26 +409,15 @@ class _PlaceAdditionalInfoPageState extends State<PlaceAdditionalInfoPage> {
               }).toList(),
             ),
             const SizedBox(height: 20),
-
-            // "장소 제안" 버튼
+            // "다음 단계로" 버튼
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFB9FDF9),
+                backgroundColor: Colors.pink[100],
                 padding: const EdgeInsets.symmetric(vertical: 15),
               ),
-              onPressed: () {
-                // 예시: 각 요일의 시간 상태 출력
-                for (var day in selectedDays.keys) {
-                  if (selectedDays[day]!) {
-                    debugPrint(
-                        "$day: ${startHour[day]!.toString().padLeft(2, '0')}:${startMinute[day]!.toString().padLeft(2, '0')} ~ ${endHour[day]!.toString().padLeft(2, '0')}:${endMinute[day]!.toString().padLeft(2, '0')}");
-                  } else {
-                    debugPrint("$day: 휴무");
-                  }
-                }
-                // TODO: 추가 정보 저장 로직 구현 (DB 연동 등)
-              },
-              child: const Text("장소 제안", style: TextStyle(color: Colors.black)),
+              onPressed: _goToPlaceInPage,
+              child: const Text("다음 단계로",
+                  style: TextStyle(color: Colors.black, fontSize: 16)),
             ),
           ],
         ),

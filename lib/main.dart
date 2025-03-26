@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
-import 'home.dart'; // ✅ HomePage 불러오기
-import 'login.dart'; // ✅ LoginPage 불러오기
-import 'signup.dart'; // ✅ SignupPage 불러오기 (필수)
+import 'package:flutter_naver_map/flutter_naver_map.dart';
+import 'home.dart';
+import 'login.dart';
+import 'signup.dart';
 import 'my.dart';
 import 'food.dart';
 import 'board.dart';
@@ -14,18 +15,36 @@ import 'post.dart';
 import 'place.dart';
 import 'placeadd.dart';
 import 'price.dart';
+import 'placein.dart';
+import 'category.dart';
+import 'navermap.dart';
+import 'foodplace.dart';
+import 'cafe.dart';
+import 'play.dart';
+import 'see.dart';
+import 'walk.dart';
+import 'zzim.dart';
+import 'zzimdetail.dart';
+import 'course.dart';
+import 'course2.dart';
+import 'course3.dart';
+import 'zzimlist.dart';
+import 'selectplace.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   try {
-    await dotenv.load(fileName: "assets/.env"); // ✅ .env 파일 로드
+    await dotenv.load(fileName: "assets/.env");
     print("✅ .env 파일 로드 완료");
-
-    String? naverClientId = dotenv.env['NAVER_CLIENT_ID'];
-    String? naverClientSecret = dotenv.env['NAVER_CLIENT_SECRET'];
   } catch (e) {
-    print("❌ .env 파일을 로드하는 중 오류 발생: $e");
+    print("❌ .env 파일 로드 오류: $e");
   }
+  await NaverMapSdk.instance.initialize(
+    clientId: dotenv.env['NAVER_MAP_CLIENT_ID'] ?? '', // 또는 직접 입력
+    onAuthFailed: (error) {
+      print('네이버 지도 인증 실패: $error');
+    },
+  );
   KakaoSdk.init(nativeAppKey: "2335e028a51784148baef28bac903d8c");
   runApp(
     MultiProvider(
@@ -35,12 +54,6 @@ void main() async {
       child: const MyApp(),
     ),
   );
-  printKeyHash();
-}
-
-void printKeyHash() async {
-  String keyHash = await KakaoSdk.origin;
-  print("🔑 현재 앱에서 사용하는 키 해시: $keyHash");
 }
 
 class MyApp extends StatelessWidget {
@@ -48,40 +61,79 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    print("MyApp build called");
     return MaterialApp(
       title: 'Date App',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(scaffoldBackgroundColor: Colors.grey.shade100),
-      initialRoute: '/login', // ✅ 로그인 페이지가 첫 화면
+      initialRoute: '/login',
       routes: {
         '/login': (context) => const LoginPage(),
         '/home': (context) => const HomePage(),
         '/signup': (context) => const SignupPage(),
         '/my': (context) => const MyPage(),
         '/food': (context) => const FoodPage(),
+        '/cafe': (context) => const CafePage(),
+        '/see': (context) => const SeePage(),
+        '/walk': (context) => const WalkPage(),
+        '/play': (context) => const PlayPage(),
         '/board': (context) => const BoardPage(),
         '/writePost': (context) => const WritePostPage(),
         '/place': (context) => const PlacePage(),
+        '/navermap': (context) => const NaverMapScreen(),
+        '/zzim': (context) => const ZzimPage(),
+        '/course': (context) => const CourseCreationPage(),
+
+        '/CategorySelectionPage': (context) =>
+            const CategorySelectionPage(), // Add this line
       },
       onGenerateRoute: (RouteSettings settings) {
+        if (settings.name == '/zzimlist') {
+          // settings.arguments로 userId를 전달받는 방식
+          final int userId = settings.arguments as int;
+          return MaterialPageRoute(
+            builder: (context) => ZzimListDialog(userId: userId),
+          );
+        }
+        if (settings.name == '/zzimdetail') {
+          final collection = settings.arguments as Map<String, dynamic>;
+          return MaterialPageRoute(
+            builder: (context) => CollectionDetailPage(collection: collection),
+          );
+        }
+        if (settings.name == '/selectplace') {
+          final collection = settings.arguments as Map<String, dynamic>;
+          return MaterialPageRoute(
+            builder: (context) => CollectionDetailPage(collection: collection),
+          );
+        }
         if (settings.name == '/post') {
           final int postId = settings.arguments as int;
           return MaterialPageRoute(
             builder: (context) => PostPage(postId: postId),
           );
         } else if (settings.name == '/price') {
-          final String placeName = settings.arguments as String;
+          final Map<String, dynamic> args =
+              settings.arguments as Map<String, dynamic>;
           return MaterialPageRoute(
-            builder: (context) => PriceInfoPage(placeName: placeName),
+            builder: (context) => PriceInfoPage(placeData: args),
           );
         } else if (settings.name == '/placeadd') {
-          final String placeName = settings.arguments as String;
+          final Map<String, dynamic> args =
+              settings.arguments as Map<String, dynamic>;
           return MaterialPageRoute(
-            builder: (context) =>
-                PlaceAdditionalInfoPage(placeName: placeName), // ✅ 장소 이름 전달
+            builder: (context) => PlaceAdditionalInfoPage(
+              placeData: args,
+              priceList: [], // PriceInfoPage에서 입력한 가격 정보가 없으면 빈 리스트로 전달
+            ),
+          );
+        } else if (settings.name == '/placeinpage') {
+          final Map<String, dynamic> payload =
+              settings.arguments as Map<String, dynamic>;
+          return MaterialPageRoute(
+            builder: (context) => PlaceInPage(payload: payload),
           );
         }
+
         return null;
       },
     );

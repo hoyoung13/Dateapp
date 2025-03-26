@@ -6,22 +6,36 @@ const pool = require('../config/db');
 const registerUser = async (req, res) => {
     console.log("📥 회원가입 요청 도착! 데이터:", req.body);
     try {
-        let  { nickname, email, password, name, birth_date, gender } = req.body;
+        let { nickname, email, password, name, birth_date, gender } = req.body;
         gender = gender === "male" ? "남성" : "여성";
 
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        const newUser = await pool.query(
+        // 여기는 회원가입 기본정보 저장
+        const newUserResult = await pool.query(
             "INSERT INTO users (nickname, email, password, name, birth_date, gender) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *",
             [nickname, email, hashedPassword, name, birth_date, gender]
         );
+        const newUser = newUserResult.rows[0];
 
-        res.status(201).json({ message: "✅ 회원가입 성공!", user: newUser.rows[0] });
+        // 여기는 기본 찜목록 생성하는거
+        const defaultCollectionResult = await pool.query(
+            "INSERT INTO collections (user_id, collection_name, description, is_public) VALUES ($1, $2, $3, $4) RETURNING *",
+            [newUser.id, "찜목록", "기본 찜 목록", true]
+        );
+        const defaultCollection = defaultCollectionResult.rows[0];
+
+        res.status(201).json({ 
+            message: "✅ 회원가입 성공!", 
+            user: newUser,
+            defaultCollection: defaultCollection
+        });
     } catch (err) {
         console.error(err.message);
         res.status(500).json({ error: "❌ 서버 오류 발생" });
     }
 };
+
 
 // ✅ 로그인
 const loginUser = async (req, res) => {

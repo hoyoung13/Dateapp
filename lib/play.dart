@@ -6,264 +6,15 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'foodplace.dart';
 import 'dart:io';
 import 'constants.dart';
-import 'package:provider/provider.dart';
-import 'constants.dart';
-import 'user_provider.dart';
 
-/// FavoriteIcon 위젯: 하트 아이콘을 토글하는 상태
-import 'package:flutter/material.dart';
-
-/// 즐겨찾기(하트) 버튼을 누르면 바텀시트가 열리는 위젯
-class FavoriteIcon extends StatelessWidget {
-  final Map<String, dynamic> place; // 어떤 장소인지 전달
-
-  const FavoriteIcon({Key? key, required this.place}) : super(key: key);
-
-  void _showCollectionSelectSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true, // 키보드 대응
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
-      ),
-      builder: (BuildContext context) {
-        return CollectionSelectSheet(place: place);
-      },
-    );
-  }
+class PlayPage extends StatefulWidget {
+  const PlayPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return IconButton(
-      icon: const Icon(Icons.favorite_border, color: Colors.grey),
-      onPressed: () {
-        _showCollectionSelectSheet(context);
-      },
-    );
-  }
+  _PlayPageState createState() => _PlayPageState();
 }
 
-/// 콜렉션 선택 바텀시트 – 실제 서버에서 콜렉션 목록을 불러올 수 있도록 추후 API 호출로 대체 가능
-class CollectionSelectSheet extends StatefulWidget {
-  final Map<String, dynamic> place; // 어떤 장소를 콜렉션에 추가할지
-
-  const CollectionSelectSheet({Key? key, required this.place})
-      : super(key: key);
-
-  @override
-  _CollectionSelectSheetState createState() => _CollectionSelectSheetState();
-}
-
-class _CollectionSelectSheetState extends State<CollectionSelectSheet> {
-  Future<List<dynamic>>? _collectionsFuture;
-  String? selectedCollection; // 선택한 콜렉션의 id
-
-  @override
-  void initState() {
-    super.initState();
-    // userProvider에서 userId를 가져와서 서버에서 콜렉션 목록 불러오기
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final userProvider = Provider.of<UserProvider>(context, listen: false);
-      final userId = userProvider.userId;
-      if (userId != null) {
-        setState(() {
-          _collectionsFuture = fetchCollections(userId);
-        });
-      }
-    });
-  }
-
-  Future<List<dynamic>> fetchCollections(int userId) async {
-    final url = Uri.parse('$BASE_URL/zzim/collections/$userId');
-    try {
-      final response = await http.get(url);
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return data["collections"] as List<dynamic>;
-      } else {
-        print(
-            'Failed to fetch collections: ${response.statusCode} ${response.body}');
-        return [];
-      }
-    } catch (error) {
-      print('Error fetching collections: $error');
-      return [];
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.only(bottom: 16.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // 상단 구분선
-            Container(
-              height: 6,
-              width: 40,
-              margin: const EdgeInsets.symmetric(vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(3),
-              ),
-            ),
-            const Text(
-              "콜렉션에 추가",
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            // "새 콜렉션 만들기" 버튼 (테두리만 있는 버튼, 내부 채우지 않음)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: OutlinedButton(
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.cyan,
-                  side: const BorderSide(color: Colors.cyan),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                onPressed: () {
-                  // TODO: "새 콜렉션 만들기" 기능 구현
-                },
-                child: const Text("새 콜렉션 만들기"),
-              ),
-            ),
-            const SizedBox(height: 16),
-            // 콜렉션 목록 표시 (여기서는 FutureBuilder로 불러옴)
-            FutureBuilder<List<dynamic>>(
-              future: _collectionsFuture,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                } else if (snapshot.hasError) {
-                  return Center(child: Text("오류 발생: ${snapshot.error}"));
-                } else {
-                  final collections = snapshot.data ?? [];
-                  if (collections.isEmpty) {
-                    return const Text("등록된 콜렉션이 없습니다.");
-                  }
-                  return Column(
-                    children: [
-                      for (var coll in collections) _buildCollectionRow(coll),
-                    ],
-                  );
-                }
-              },
-            ),
-            const SizedBox(height: 16),
-            // 저장 버튼 (전체 가로)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.cyan,
-                  minimumSize: const Size.fromHeight(48),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                onPressed: () async {
-                  if (selectedCollection == null) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('콜렉션을 선택해주세요.')),
-                    );
-                    return;
-                  }
-                  // selectedCollection은 문자열 형태의 collection id
-                  int collectionId = int.parse(selectedCollection!);
-                  // widget.place에서 place id 추출 (필드명이 'id'라고 가정)
-                  int placeId = widget.place['id'];
-                  // API 호출 함수 (추후 addPlaceToCollection 함수와 연동)
-                  bool success =
-                      await addPlaceToCollection(collectionId, placeId);
-                  if (success) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('장소가 콜렉션에 추가되었습니다.')),
-                    );
-                    Navigator.pop(context);
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('장소 추가에 실패했습니다.')),
-                    );
-                  }
-                },
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
-                  child: Text("저장", style: TextStyle(color: Colors.white)),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // 각 콜렉션 항목 UI
-  Widget _buildCollectionRow(dynamic collection) {
-    final String collName = collection['collection_name'] ?? '제목 없음';
-    final String collId = collection['id'].toString();
-    return InkWell(
-      onTap: () {
-        setState(() {
-          selectedCollection = collId;
-        });
-      },
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(collName,
-                  style: const TextStyle(fontSize: 14, color: Colors.black)),
-            ),
-            if (selectedCollection == collId)
-              const Icon(Icons.check, color: Colors.cyan),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// API 요청 함수: collection_places에 장소 추가
-Future<bool> addPlaceToCollection(int collectionId, int placeId) async {
-  final url = Uri.parse('$BASE_URL/zzim/collection_places');
-  try {
-    final response = await http.post(
-      url,
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'collection_id': collectionId,
-        'place_id': placeId,
-      }),
-    );
-    if (response.statusCode == 201) {
-      print('Place added to collection successfully: ${response.body}');
-      return true;
-    } else {
-      print(
-          'Failed to add place to collection: ${response.statusCode} ${response.body}');
-      return false;
-    }
-  } catch (e) {
-    print('Error adding place to collection: $e');
-    return false;
-  }
-}
-
-class FoodPage extends StatefulWidget {
-  const FoodPage({super.key});
-
-  @override
-  _FoodPageState createState() => _FoodPageState();
-}
-
-class _FoodPageState extends State<FoodPage> {
+class _PlayPageState extends State<PlayPage> {
   String? selectedCity;
   String? selectedDistrict;
   String? selectedNeighborhood;
@@ -303,7 +54,7 @@ class _FoodPageState extends State<FoodPage> {
           registeredPlaces = data
               .where((place) =>
                   place['main_category'] != null &&
-                  place['main_category'] == "먹기")
+                  place['main_category'] == "놀기")
               .map((e) => e as Map<String, dynamic>)
               .toList();
         });
@@ -507,9 +258,7 @@ class _FoodPageState extends State<FoodPage> {
     );
   }
 
-  // FoodCard 위젯: 등록된 장소 데이터를 표시 (이미지와 장소 이름, 우측에 하트 아이콘)
-  // FoodPage.dart 내 _buildFoodCard 함수
-  // FoodCard 위젯: 등록된 장소 데이터를 표시 (이미지와 장소 이름, 우측에 FavoriteIcon)
+  // FoodCard 위젯: 등록된 장소 데이터를 표시 (이미지와 장소 이름)
   Widget _buildFoodCard(Map<String, dynamic> place) {
     String imageUrl = "";
     if (place['images'] != null &&
@@ -519,6 +268,7 @@ class _FoodPageState extends State<FoodPage> {
     }
     return GestureDetector(
       onTap: () {
+        // 카드 클릭 시 PlaceInPageUIOnly 화면으로 이동하며 place 데이터를 payload로 전달합니다.
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -560,27 +310,19 @@ class _FoodPageState extends State<FoodPage> {
                       ),
               ),
             ),
-            // 장소 이름 및 정보, 우측에 FavoriteIcon
+            // 장소 이름 및 기타 정보
             Padding(
               padding: const EdgeInsets.all(8.0),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          place['place_name'] ?? "장소 이름",
-                          style: const TextStyle(
-                              fontSize: 14, fontWeight: FontWeight.bold),
-                        ),
-                        const Text("추천수: 00  평점: 0.0",
-                            style: TextStyle(fontSize: 12)),
-                      ],
-                    ),
+                  Text(
+                    place['place_name'] ?? "장소 이름",
+                    style: const TextStyle(
+                        fontSize: 14, fontWeight: FontWeight.bold),
                   ),
-                  // FavoriteIcon에 해당 장소 데이터를 전달
-                  FavoriteIcon(place: place),
+                  const Text("추천수: 00  평점: 0.0",
+                      style: TextStyle(fontSize: 12)),
                 ],
               ),
             ),

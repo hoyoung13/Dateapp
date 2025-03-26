@@ -1,7 +1,6 @@
 const express = require("express");
 const router = express.Router();
 const coupleController = require("../controllers/coupleController");
-console.log("✅ coupleController:", coupleController);
 
 // ✅ 사용자 검색 추가
 router.get("/search-user", coupleController.searchUser);
