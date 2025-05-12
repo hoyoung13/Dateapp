@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'constants.dart';
+import 'zzim.dart';
 
 class CollectionDetailPage extends StatelessWidget {
   final Map<String, dynamic> collection;

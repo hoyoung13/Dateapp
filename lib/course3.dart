@@ -139,18 +139,10 @@ class _CourseCreationStep3PageState extends State<CourseCreationStep3Page>
     final encodedAddress = Uri.encodeComponent(address);
     final url = 'https://map.naver.com/v5/search/$encodedAddress';
 
-    // launchUrl 사용 시 (url_launcher 6.x 이상)
     final uri = Uri.parse(url);
     if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
       throw 'Could not launch $url';
     }
-
-    // 또는 launch() 사용 시
-    // if (await canLaunch(url)) {
-    //   await launch(url);
-    // } else {
-    //   throw 'Could not launch $url';
-    // }
   }
 
   /// 주어진 주소를 네이버 지오코딩 API로부터 좌표(NLatLng)로 변환하는 함수
@@ -278,21 +270,6 @@ class _CourseCreationStep3PageState extends State<CourseCreationStep3Page>
                   ),
                   const SizedBox(height: 8),
                   // TextButton 스타일을 최소화하여 오버플로우 방지
-                  TextButton(
-                    onPressed: () {
-                      // 길찾기 기능 구현 (예: url_launcher 사용)
-                      print("길찾기 버튼 눌림");
-                    },
-                    style: TextButton.styleFrom(
-                      minimumSize: Size(0, 0),
-                      padding: EdgeInsets.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    child: const Text(
-                      "길찾기",
-                      style: TextStyle(color: Colors.blue),
-                    ),
-                  ),
                 ],
               ),
             ),

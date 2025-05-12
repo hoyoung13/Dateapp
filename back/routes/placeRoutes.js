@@ -1,7 +1,7 @@
 // back/routes/placeRoutes.js
 const express = require('express');
 const router = express.Router();
-const { createPlace,getPlaces,getPlaceById } = require('../controllers/placeController');
+const { createPlace,getPlaces,getPlaceById,getFilteredPlaces } = require('../controllers/placeController');
 
 // POST /places -> 장소 정보 등록 API
 router.post("/", createPlace);
@@ -9,5 +9,6 @@ router.post("/", createPlace);
 router.get("/", getPlaces);
 router.get('/:id', getPlaceById);
 
+router.get('/place', getFilteredPlaces);
 
 module.exports = router;

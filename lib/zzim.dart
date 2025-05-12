@@ -10,6 +10,7 @@ import 'user_provider.dart';
 import 'zzimdetail.dart';
 import 'coursedetail.dart';
 import 'schedule_item.dart';
+import 'dart:io';
 
 class ZzimPage extends StatefulWidget {
   const ZzimPage({Key? key}) : super(key: key);
@@ -280,149 +281,159 @@ class _ZzimPageState extends State<ZzimPage> {
     final List<dynamic> schedules = course['schedules'] ?? [];
 
     return GestureDetector(
-      onTap: () {
-        final courseName = course['course_name'] ?? '코스 이름 없음';
-        final courseDesc = course['course_description'] ?? '';
-        final withWho = (course['with_who'] as List?)?.cast<String>() ?? [];
-        final purpose = (course['purpose'] as List?)?.cast<String>() ?? [];
-        final hashtags = (course['hashtags'] as List?)?.cast<String>() ?? [];
+        onTap: () {
+          final courseName = course['course_name'] ?? '코스 이름 없음';
+          final courseDesc = course['course_description'] ?? '';
+          final withWho = (course['with_who'] as List?)?.cast<String>() ?? [];
+          final purpose = (course['purpose'] as List?)?.cast<String>() ?? [];
+          final hashtags = (course['hashtags'] as List?)?.cast<String>() ?? [];
+          final schedulesRaw = course['schedules'] as List<dynamic>? ?? [];
+          // List<ScheduleItem> 로 변환 (ScheduleItem.fromJson()이 정의되어 있다고 가정)
+          final scheduleItems = schedulesRaw.map((e) {
+            return ScheduleItem.fromJson(e as Map<String, dynamic>);
+          }).toList();
 
-        // schedulesRaw는 List<dynamic>
-        final schedulesRaw = course['schedules'] as List<dynamic>? ?? [];
-        // List<ScheduleItem> 로 변환
-        final schedules = schedulesRaw.map((e) {
-          return ScheduleItem.fromJson(e as Map<String, dynamic>);
-        }).toList();
-
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => CourseDetailPage(
-              courseName: courseName,
-              courseDescription: courseDesc,
-              withWho: withWho,
-              purpose: purpose,
-              hashtags: hashtags,
-              schedules: schedules, // 이제 List<ScheduleItem> 형식
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => CourseDetailPage(
+                courseName: courseName,
+                courseDescription: courseDesc,
+                withWho: withWho,
+                purpose: purpose,
+                hashtags: hashtags,
+                schedules: scheduleItems,
+              ),
             ),
+          );
+        },
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [BoxShadow(color: Colors.grey.shade300, blurRadius: 5)],
           ),
-        );
-      },
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [BoxShadow(color: Colors.grey.shade300, blurRadius: 5)],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 코스 이름
-            Text(
-              courseName,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 4),
-
-            // 누구랑 / 무엇을
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: [
-                ...withWho.map((w) => _buildChip(w, Colors.pink.shade50)),
-                ...purpose.map((p) => _buildChip(p, Colors.yellow.shade50)),
-              ],
-            ),
-            const SizedBox(height: 4),
-
-            // 해시태그
-            if (hashtags.isNotEmpty)
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 코스 이름
+              Text(
+                courseName,
+                style:
+                    const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 4),
+              // 누구랑 / 무엇을
               Wrap(
                 spacing: 6,
                 runSpacing: 6,
-                children: hashtags.map((tag) {
-                  return _buildChip('#$tag', Colors.green.shade50);
-                }).toList(),
+                children: [
+                  ...withWho.map((w) => _buildChip(w, Colors.pink.shade50)),
+                  ...purpose.map((p) => _buildChip(p, Colors.yellow.shade50)),
+                ],
               ),
-            const SizedBox(height: 8),
+              const SizedBox(height: 4),
+              // 해시태그
+              if (hashtags.isNotEmpty)
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: hashtags.map((tag) {
+                    return _buildChip('#$tag', Colors.green.shade50);
+                  }).toList(),
+                ),
+              const SizedBox(height: 8),
+              // 장소들 (schedules) - 가로 스크롤
+              SizedBox(
+                height: 80,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: schedules.length,
+                  itemBuilder: (context, index) {
+                    final sch = schedules[index];
+                    final String placeName = sch['place_name'] ?? '장소';
+                    final String? placeImage = sch['place_image'];
+                    Widget imageWidget;
+                    if (placeImage != null && placeImage.isNotEmpty) {
+                      if (placeImage.startsWith('http')) {
+                        // 네트워크 이미지
+                        imageWidget = Image.network(
+                          placeImage,
+                          fit: BoxFit.cover,
+                          width: 80,
+                        );
+                      } else if (placeImage.startsWith('/data/') ||
+                          placeImage.startsWith('file://')) {
+                        // 로컬 파일 경로
+                        imageWidget = Image.file(
+                          File(placeImage),
+                          fit: BoxFit.cover,
+                          width: 80,
+                        );
+                      } else {
+                        // 그 외 상대 경로인 경우 BASE_URL을 붙여서 네트워크 이미지로 처리
+                        final fullImageUrl = '$BASE_URL$placeImage';
+                        imageWidget = Image.network(
+                          fullImageUrl,
+                          fit: BoxFit.cover,
+                          width: 80,
+                        );
+                      }
+                    } else {
+                      imageWidget = Container(
+                        width: 80,
+                        color: Colors.grey.shade300,
+                        child: const Icon(Icons.image_not_supported),
+                      );
+                    }
 
-            // 장소들 (schedules) - 가로 스크롤
-            SizedBox(
-              height: 80,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: schedules.length,
-                itemBuilder: (context, index) {
-                  final sch = schedules[index];
-                  final placeName = sch['place_name'] ?? '장소';
-                  final placeImage = sch['place_image'];
-
-                  final fullImageUrl =
-                      (placeImage != null && !placeImage.startsWith('http'))
-                          ? "$BASE_URL$placeImage"
-                          : placeImage;
-
-                  return Container(
-                    width: 80,
-                    margin: const EdgeInsets.only(right: 8),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // 이미지
-                        Expanded(
-                          child: (fullImageUrl != null)
-                              ? Image.network(
-                                  fullImageUrl,
-                                  fit: BoxFit.cover,
-                                  width: 80,
-                                )
-                              : Container(
-                                  width: 80,
-                                  color: Colors.grey.shade300,
-                                  child: const Icon(Icons.image_not_supported),
-                                ),
-                        ),
-                        // 장소 이름
-                        Text(
-                          placeName,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                      ],
-                    ),
-                  );
-                },
+                    return Container(
+                      width: 80,
+                      margin: const EdgeInsets.only(right: 8),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: imageWidget,
+                          ),
+                          // 장소 이름
+                          Text(
+                            placeName,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-
-            // 공유 / 편집 버튼
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(
-                  onPressed: () {
-                    // TODO: 공유 로직 구현
-                  },
-                  child: const Text("공유"),
-                ),
-                TextButton(
-                  onPressed: () {
-                    // TODO: 편집 로직 (코스 수정 페이지 이동 등)
-                  },
-                  child: const Text("편집"),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
+              const SizedBox(height: 8),
+              // 공유 / 편집 버튼
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () {
+                      // TODO: 공유 로직 구현
+                    },
+                    child: const Text("공유"),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      // TODO: 편집 로직 (코스 수정 페이지 이동 등)
+                    },
+                    child: const Text("편집"),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ));
   }
 
-  /// 간단한 Chip UI
   Widget _buildChip(String label, Color bgColor) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -637,8 +648,14 @@ class _ZzimPageState extends State<ZzimPage> {
                   style: const TextStyle(fontSize: 14, color: Colors.grey),
                 ),
                 onTap: () {
-                  // 콜렉션 상세 페이지로 이동 (예: CollectionDetailPage)
-                  // ...
+                  Navigator.of(context).push(
+                    // 애니메이션 없이 이동하려면 _noAnimationRoute를 써도 되고,
+                    // 일반적으로는 MaterialPageRoute를 사용합니다.
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          CollectionDetailPage(collection: collection),
+                    ),
+                  );
                 },
               );
             },

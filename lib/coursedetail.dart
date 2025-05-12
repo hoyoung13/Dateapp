@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'schedule_item.dart';
 import 'constants.dart';
 import 'dart:convert';
+import 'map.dart' hide NLatLng;
 
 class CourseDetailPage extends StatefulWidget {
   final String courseName; // 코스 이름
@@ -40,6 +41,8 @@ class _CourseDetailPageState extends State<CourseDetailPage>
   @override
   void initState() {
     super.initState();
+    print(widget.schedules);
+
     _fetchCoordinatesForSchedules();
   }
 
@@ -164,10 +167,39 @@ class _CourseDetailPageState extends State<CourseDetailPage>
     final placeAddress = item.placeAddress ?? "주소 정보 없음";
     final placeImage = item.placeImage;
 
-    // placeImage가 http로 시작하지 않으면 BASE_URL 붙이기
-    final fullImageUrl = (placeImage != null && !placeImage.startsWith('http'))
-        ? "$BASE_URL$placeImage"
-        : placeImage;
+    Widget imageWidget;
+    if (placeImage != null && placeImage.isNotEmpty) {
+      if (placeImage.startsWith('http')) {
+        // 네트워크 이미지
+        imageWidget = Image.network(
+          placeImage,
+          fit: BoxFit.cover,
+          width: 80,
+        );
+      } else if (placeImage.startsWith('/data/') ||
+          placeImage.startsWith('file://')) {
+        // 로컬 파일 경로
+        imageWidget = Image.file(
+          File(placeImage),
+          fit: BoxFit.cover,
+          width: 80,
+        );
+      } else {
+        // 그 외 상대 경로인 경우 BASE_URL을 붙여서 네트워크 이미지로 처리
+        final fullImageUrl = '$BASE_URL$placeImage';
+        imageWidget = Image.network(
+          fullImageUrl,
+          fit: BoxFit.cover,
+          width: 80,
+        );
+      }
+    } else {
+      imageWidget = Container(
+        width: 80,
+        color: Colors.grey.shade300,
+        child: const Icon(Icons.image_not_supported),
+      );
+    }
 
     return Container(
       width: 200,
@@ -185,15 +217,7 @@ class _CourseDetailPageState extends State<CourseDetailPage>
             SizedBox(
               height: 120,
               width: double.infinity,
-              child: (fullImageUrl != null)
-                  ? Image.network(
-                      fullImageUrl,
-                      fit: BoxFit.cover,
-                    )
-                  : Container(
-                      color: Colors.grey.shade300,
-                      child: const Center(child: Text("이미지 없음")),
-                    ),
+              child: imageWidget,
             ),
             // 텍스트 정보
             Padding(
@@ -311,6 +335,27 @@ class _CourseDetailPageState extends State<CourseDetailPage>
                 },
               ),
             ),
+            const SizedBox(height: 24),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: ElevatedButton(
+                onPressed: () {
+                  // 길찾기 페이지로 이동
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => MapPage(places: widget.schedules),
+                    ),
+                  );
+                },
+                child: const Text("길찾기"),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.cyan, // 버튼 색상을 cyan으로 설정
+                  minimumSize: const Size.fromHeight(50),
+                ),
+              ),
+            ),
+
             const SizedBox(height: 24),
             // 등록 버튼 등은 제거
           ],

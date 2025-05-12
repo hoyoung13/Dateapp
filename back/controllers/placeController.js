@@ -70,5 +70,54 @@ const getPlaceById = async (req, res) => {
     res.status(500).json({ error: "Server error" });
   }
 };
+async function getFilteredPlaces(req, res) {
+  try {
+    // 쿼리 파라미터 읽기
+    const { city, district, neighborhood, category } = req.query;
 
-module.exports = { createPlace, getPlaces,getPlaceById };
+    // 동적 WHERE 절 조립 준비
+    const conditions = [];
+    const values = [];
+
+    // main_category 필터 (category 파라미터가 있을 때만)
+    if (category) {
+      values.push(category);
+      conditions.push(`main_category = $${values.length}`);
+    }
+
+    // 도시(시/도) 필터
+    if (city) {
+      values.push(`%${city}%`);
+      conditions.push(`address LIKE $${values.length}`);
+    }
+    // 구/군 필터
+    if (district) {
+      values.push(`%${district}%`);
+      conditions.push(`address LIKE $${values.length}`);
+    }
+    // 동/읍/면 필터
+    if (neighborhood) {
+      values.push(`%${neighborhood}%`);
+      conditions.push(`address LIKE $${values.length}`);
+    }
+
+    // where절이 하나도 없으면 빈 문자열
+    const whereClause = conditions.length
+      ? `WHERE ${conditions.join(' AND ')}`
+      : '';
+
+    const query = `
+      SELECT *
+      FROM place_info
+      ${whereClause}
+      ORDER BY id
+    `;
+    const { rows } = await pool.query(query, values);
+    res.json(rows);
+  } catch (err) {
+    console.error('getFilteredPlaces error:', err);
+    res.status(500).json({ error: 'Failed to load places' });
+  }
+}
+
+module.exports = { createPlace, getPlaces,getPlaceById,getFilteredPlaces };

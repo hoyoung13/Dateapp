@@ -22,7 +22,7 @@ class _CourseCreationPageState extends State<CourseCreationPage> {
   final TextEditingController _courseNameController = TextEditingController();
   final TextEditingController _courseDescController = TextEditingController();
   final TextEditingController _hashtagController = TextEditingController();
-
+  Map<String, dynamic>? selectedPlace;
   DateTime? _selectedDate;
   List<String> hashtags = [];
 
@@ -30,6 +30,50 @@ class _CourseCreationPageState extends State<CourseCreationPage> {
   List<ScheduleItem> schedules = [
     ScheduleItem(),
   ];
+  Future<void> _openZzimDialog(int idx) async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final userId = userProvider.userId;
+    if (userId == null) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('로그인 정보가 없습니다.')));
+      return;
+    }
+
+    // 1) 컬렉션 고르거나 바로 장소를 리턴하는 다이얼로그
+    final Map<String, dynamic>? result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => ZzimListDialog(userId: userId),
+    );
+    if (result == null) return;
+
+    // 2) 'place_name' 키가 있으면, 이미 CourseplacePage → 코스 등록하기 까지 마친 "장소" 객체
+    if (result.containsKey('place_name')) {
+      setState(() {
+        schedules[idx].placeName = result['place_name'];
+        schedules[idx].placeAddress = result['address'];
+        schedules[idx].placeImage = result['image'];
+      });
+      return;
+    }
+
+    // 3) 그 외에는 컬렉션이므로, 선택된 컬렉션으로 SelectplacePage 로 이동
+    final Map<String, dynamic>? selectedPlace =
+        await Navigator.push<Map<String, dynamic>>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SelectplacePage(collection: result),
+      ),
+    );
+    if (selectedPlace == null) return;
+
+    // 4) 선택된 장소가 있다면 스케줄에 반영
+    setState(() {
+      schedules[idx].placeName = selectedPlace['place_name'];
+      schedules[idx].placeAddress = selectedPlace['address'];
+      schedules[idx].placeImage = selectedPlace['image'];
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -167,42 +211,7 @@ class _CourseCreationPageState extends State<CourseCreationPage> {
                         borderRadius: BorderRadius.circular(4.0),
                       ),
                       child: InkWell(
-                        onTap: () async {
-                          if (userId == null) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('로그인 정보가 없습니다.')),
-                            );
-                            return;
-                          }
-                          final selectedCollection =
-                              await showDialog<Map<String, dynamic>>(
-                            context: context,
-                            barrierDismissible: false,
-                            builder: (BuildContext context) =>
-                                ZzimListDialog(userId: userId),
-                          );
-                          if (selectedCollection != null) {
-                            final selectedPlace =
-                                await Navigator.push<Map<String, dynamic>>(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => SelectplacePage(
-                                    collection: selectedCollection),
-                              ),
-                            );
-                            print("선택된 장소 데이터: $selectedPlace");
-                            if (selectedPlace != null) {
-                              setState(() {
-                                schedules[i].placeName =
-                                    selectedPlace['place_name'];
-                                schedules[i].placeAddress =
-                                    selectedPlace['address'];
-                                schedules[i].placeImage =
-                                    selectedPlace['image'];
-                              });
-                            }
-                          }
-                        },
+                        onTap: () => _openZzimDialog(i),
                         child: Center(
                           child: Text(
                             schedules[i].placeName == null ? "장소 선택" : "장소 변경",

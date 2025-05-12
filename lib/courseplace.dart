@@ -10,18 +10,19 @@ import 'review_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'review_write_page.dart';
+import 'allplace.dart';
 
-class PlaceInPageUIOnly extends StatefulWidget {
+class CourseplacePage extends StatefulWidget {
   // 다른 화면에서 'place_name', 'images', 'description', 'operating_hours', 'phone', 'address', 'main_category', 'sub_category', 'hashtags' 등 UI에 필요한 데이터를 넘긴다고 가정
   final Map<String, dynamic> payload;
 
-  const PlaceInPageUIOnly({super.key, required this.payload});
+  const CourseplacePage({super.key, required this.payload});
 
   @override
-  State<PlaceInPageUIOnly> createState() => _PlaceInPageUIOnlyState();
+  State<CourseplacePage> createState() => _CourseplacePageState();
 }
 
-class _PlaceInPageUIOnlyState extends State<PlaceInPageUIOnly>
+class _CourseplacePageState extends State<CourseplacePage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
@@ -521,6 +522,36 @@ class _PlaceInPageUIOnlyState extends State<PlaceInPageUIOnly>
               ),
             ),
           ],
+        ),
+        // ② bottomNavigationBar 에 고정 버튼 추가
+        bottomNavigationBar: SafeArea(
+          minimum: const EdgeInsets.all(16),
+          child: SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: ElevatedButton(
+              onPressed: () {
+                // payload 의 첫 이미지를 'image' 로 추가한 뒤 반환
+                final enriched = {
+                  ...widget.payload,
+                  'image': (widget.payload['images'] as List<dynamic>)
+                      .first
+                      .toString(),
+                };
+                Navigator.of(context).pop(enriched);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.cyan,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: const Text(
+                '코스 등록하기',
+                style: TextStyle(color: Colors.white, fontSize: 16),
+              ),
+            ),
+          ),
         ),
       ),
     );

@@ -13,10 +13,10 @@ class ScheduleItem {
 
   factory ScheduleItem.fromJson(Map<String, dynamic> json) {
     return ScheduleItem(
-      placeId: json['placeId'] as String?,
-      placeName: json['placeName'] as String?,
-      placeAddress: json['placeAddress'] as String?,
-      placeImage: json['placeImage'] as String?,
+      placeId: json['place_id'] as String?,
+      placeName: json['place_name'] as String?,
+      placeAddress: json['place_address'] as String?,
+      placeImage: json['place_image'] as String?,
     );
   }
 

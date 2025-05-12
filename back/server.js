@@ -13,6 +13,8 @@ const profileRoutes = require("./routes/profileRoutes");
 const placeRoutes = require('./routes/placeRoutes');
 const zzimRoutes = require('./routes/zzimRoutes');
 const courseRoutes = require('./routes/courseRoutes');
+const reviewRoutes = require('./routes/reviewRoutes');
+
 
 dotenv.config(); // ✅ 환경 변수 로드
 
@@ -54,6 +56,7 @@ app.use('/places', placeRoutes);
 
 app.use('/zzim', zzimRoutes);
 app.use('/course', courseRoutes); 
+app.use('/api', reviewRoutes);
 
 // ✅ 서버 실행
 const PORT = process.env.PORT || 5000;

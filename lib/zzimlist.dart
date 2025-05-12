@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'constants.dart';
 import 'selectplace.dart';
+import 'allplace.dart';
 
 class ZzimListDialog extends StatefulWidget {
   final int userId;
@@ -74,6 +75,34 @@ class _ZzimListDialogState extends State<ZzimListDialog> {
                 ],
               ),
             ),
+            // 2) 여기에 '장소 보러가기' 버튼 추가
+            // ZzimListDialog.dart
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: ElevatedButton.icon(
+                onPressed: () async {
+                  // 바로 AllPlacePage 로 이동
+                  final Map<String, dynamic>? selectedPlace =
+                      await Navigator.of(context).push<Map<String, dynamic>>(
+                    MaterialPageRoute(builder: (_) => AllplacePage()),
+                  );
+                  // CoursePlacePage 에서 pop(widget.payload) 한 payload 를 받으면
+                  if (selectedPlace != null) {
+                    // 이 Dialog 도 닫으면서 상위(course.dart)로 전달
+                    Navigator.of(context).pop(selectedPlace);
+                  }
+                },
+                icon: const Icon(Icons.place_outlined),
+                label: const Text('장소 보러가기'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.cyan[100],
+                  foregroundColor: Colors.black,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+            ),
+
             Expanded(
               child: FutureBuilder<List<dynamic>>(
                 future: _collectionsFuture,
